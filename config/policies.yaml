@@ -1,0 +1,52 @@
+# Example per-use-case policy configuration.
+# Each use case defines which checks apply, how strict thresholds are, and how much
+# latency budget is available. This file is read at runtime by src/policy.
+#
+# action options: allow | flag_for_review | block
+# threshold: confidence score (0-1) at or below which this action applies for that check
+
+- use_case: customer_support_chatbot
+  region: EU
+  latency_budget_ms: 500
+  checks:
+    pii:
+      action: block
+      threshold: 0.70
+    hallucination:
+      action: flag_for_review
+      threshold: 0.50
+    bias:
+      action: flag_for_review
+      threshold: 0.60
+  run_tiers: [heuristics, judge]   # RAG skipped — latency budget too tight
+
+- use_case: internal_knowledge_assistant
+  region: US
+  latency_budget_ms: 2000
+  checks:
+    pii:
+      action: flag_for_review
+      threshold: 0.80
+    hallucination:
+      action: block
+      threshold: 0.40
+    bias:
+      action: flag_for_review
+      threshold: 0.60
+  run_tiers: [heuristics, rag, judge]
+
+- use_case: decision_support_regulated
+  region: US
+  latency_budget_ms: 5000
+  checks:
+    pii:
+      action: block
+      threshold: 0.90
+    hallucination:
+      action: block
+      threshold: 0.30
+    bias:
+      action: block
+      threshold: 0.50
+  run_tiers: [heuristics, rag, judge]
+  audit_log: required
