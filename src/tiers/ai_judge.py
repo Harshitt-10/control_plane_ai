@@ -3,6 +3,7 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 from groq import Groq
+import httpx
 
 from src.models.schemas import TierResult, TierStatus
 
@@ -17,7 +18,10 @@ def _get_client():
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             return None
-        _CLIENT = Groq(api_key=api_key)
+        _CLIENT = Groq(
+            api_key=api_key,
+            http_client=httpx.Client(trust_env=False, timeout=30.0),
+        )
     return _CLIENT
 
 

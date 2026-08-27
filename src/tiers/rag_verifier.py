@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
@@ -12,8 +15,15 @@ STATIC_KB = {
 }
 
 
-def _load_mock_knowledge_base() -> dict[str, str]:
-    kb_path = Path(__file__).resolve().parents[2] / "data" / "mock_knowledge_base.json"
+def _normalize(text: str) -> str:
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+@lru_cache(maxsize=1)
+def _load_knowledge_base() -> dict[str, str]:
+    kb_path = Path(__file__).resolve().parents[1] / "data" / "knowledge_base.json"
     if not kb_path.exists():
         return {}
 
@@ -23,62 +33,96 @@ def _load_mock_knowledge_base() -> dict[str, str]:
     return data if isinstance(data, dict) else {}
 
 
-def _normalize(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def _build_aliases(key: str, value: str) -> list[str]:
     aliases = [_normalize(key), _normalize(value)]
 
-    if key == "refund_policy":
+    if key == "remote_work_stipend":
         aliases.extend(
             [
-                "refund within 14 days",
-                "refunds within 14 days",
-                "processed within 14 days",
-                "14 days of the original purchase",
-                "no exceptions for clearance items",
+                "remote work stipend",
+                "home office equipment reimbursement",
+                "ergonomic accessories",
+                "approved connectivity costs",
+                "calendar year",
             ]
         )
-    elif key == "server_downtime":
+    elif key == "it_security_password_rules":
         aliases.extend(
             [
-                "scheduled maintenance",
-                "every sunday between 2 00 am and 4 00 am est",
-                "sunday between 2 00 am and 4 00 am est",
-                "server downtime",
+                "password rules",
+                "password must be at least 14 characters",
+                "multi factor authentication",
+                "uppercase lowercase numbers special characters",
+            ]
+        )
+    elif key == "mess_management_system":
+        aliases.extend(
+            [
+                "mess management system deployment stack",
+                "react frontend fastapi api",
+                "postgresql redis docker kubernetes",
+                "production deployments",
             ]
         )
 
     return [alias for alias in aliases if alias]
 
 
-def verify(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
-    normalized_text = _normalize(text)
-    knowledge_base = dict(STATIC_KB)
-    knowledge_base.update(_load_mock_knowledge_base())
-    relevant_hits = []
+def _find_matching_topics(prompt_text: str, knowledge_base: dict[str, str]) -> list[tuple[str, str]]:
+    normalized_prompt = _normalize(prompt_text)
+    matches: list[tuple[str, str]] = []
 
     for key, value in knowledge_base.items():
         aliases = _build_aliases(key, value)
-        if any(alias in normalized_text for alias in aliases):
-            relevant_hits.append(key)
+        if any(alias in normalized_prompt for alias in aliases):
+            matches.append((key, value))
 
-    if not relevant_hits:
+    return matches
+
+
+def _response_mentions_fact(response_text: str, fact_text: str) -> bool:
+    response = _normalize(response_text)
+    fact_tokens = [token for token in _normalize(fact_text).split() if len(token) > 2]
+    if not fact_tokens:
+        return False
+    return sum(1 for token in fact_tokens if token in response) >= max(2, len(fact_tokens) // 4)
+
+
+def verify(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
+    context = context or {}
+    prompt_text = context.get("user_prompt") or context.get("prompt") or text
+
+    knowledge_base = dict(STATIC_KB)
+    knowledge_base.update(_load_knowledge_base())
+
+    matched_topics = _find_matching_topics(prompt_text, knowledge_base)
+    if not matched_topics:
         return TierResult(
             status=TierStatus.not_applicable,
             score=0.0,
-            reason="No relevant facts found in the static knowledge base, so RAG verification was not applicable.",
+            reason="No matching topic was found in the enterprise knowledge base, so RAG verification was not applicable.",
         )
 
-    for key in relevant_hits:
-        if key == "controlplane" and "controlplane" not in lowered:
-            continue
+    verified_topics = []
+    for key, fact_text in matched_topics:
+        if _response_mentions_fact(text, fact_text):
+            verified_topics.append(key)
+
+    if verified_topics:
+        return TierResult(
+            status=TierStatus.pass_,
+            score=0.95,
+            reason=(
+                "Verified the AI response against enterprise knowledge base topic(s): "
+                f"{', '.join(verified_topics)}."
+            ),
+        )
 
     return TierResult(
-        status=TierStatus.pass_,
-        score=0.85,
-        reason=f"Verified against static knowledge base entries: {', '.join(relevant_hits)}.",
+        status=TierStatus.fail,
+        score=0.2,
+        reason=(
+            "A matching enterprise topic was found, but the AI response did not sufficiently "
+            "align with the ground-truth text in the knowledge base."
+        ),
     )
