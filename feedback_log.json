@@ -259,5 +259,34 @@
       "action": "flag",
       "final_confidence": 0.525
     }
+  },
+  {
+    "request": {
+      "user_prompt": "How many states are in india",
+      "ai_response": "India has 25 states and 8 Union Territories.\n\nSo, in total, India has 36 states and union territories combined. \ud83c\uddee\ud83c\uddf3",
+      "use_case": "internal_knowledge_assistant"
+    },
+    "tier_results": {
+      "heuristics": {
+        "status": "pass",
+        "score": 0.95,
+        "reason": "No obvious email addresses or phone numbers detected."
+      },
+      "rag": {
+        "status": "not_applicable",
+        "score": 0.0,
+        "reason": "No relevant facts found in the static knowledge base, so RAG verification was not applicable."
+      },
+      "judge": {
+        "status": "fail",
+        "score": 0.1,
+        "reason": "Groq judge flagged the text as factually incorrect or unsafe."
+      }
+    },
+    "overall_confidence": 0.525,
+    "decision": {
+      "action": "flag",
+      "final_confidence": 0.525
+    }
   }
 ]
