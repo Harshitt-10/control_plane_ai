@@ -133,7 +133,7 @@ async def dashboard() -> HTMLResponse:
         .chat-card { min-height:600px; display:flex; flex-direction:column; padding:24px 32px; } .chat-window { height:400px; max-height:60vh; flex:none; display:flex; flex-direction:column; gap:20px; overflow-y:auto; padding:10px 10px 24px 0; scroll-behavior:smooth; scrollbar-width:none; -ms-overflow-style:none; } .chat-window::-webkit-scrollbar { width:0; height:0; display:none; }
         .chat-empty { margin:auto; text-align:center; max-width:420px; } .chat-empty .chat-orb { width:64px; height:64px; margin:0 auto 20px; display:grid; place-items:center; border-radius:50%; background:linear-gradient(135deg, rgba(129,140,248,0.2), rgba(99,102,241,0.1)); border:1px solid rgba(129,140,248,0.3); color:#818cf8; font-size:24px; box-shadow:0 0 30px rgba(129,140,248,0.2), inset 0 0 15px rgba(129,140,248,0.2); } .chat-empty h3 { font-family:'Outfit', sans-serif; font-size:20px; margin:0 0 12px; color:var(--ink); } .suggestions { display:flex; flex-wrap:wrap; justify-content:center; gap:12px; margin-top:40px; } .suggestions button { border:1px solid var(--sug-border); color:var(--sug-text); background:var(--sug-bg); border-radius:99px; padding:12px 20px; cursor:pointer; font-size:13px; transition:all 0.2s; backdrop-filter:blur(4px); } .suggestions button:hover { background:var(--sug-hover-bg); color:var(--sug-hover-text); transform:translateY(-2px); }
         .chat-input { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:16px; border:1px solid var(--line); border-radius:16px; padding:10px 10px 10px 16px; background:var(--field-focus); box-shadow:0 8px 24px rgba(0,0,0,0.14); margin-top:auto; transition:border-color 0.2s; } .chat-input:focus-within { border-color:rgba(129,140,248,0.4); } .chat-input textarea { border:0; padding:10px 0; margin:0; min-height:44px; height:44px; background:transparent; resize:none; box-shadow:none; font-size:14px; line-height:1.5; overflow:hidden; } .chat-input textarea:focus { box-shadow:none; } .attach { color:var(--muted); font-size:18px; cursor:pointer; transition:color 0.2s; } .attach:hover { color:var(--ink); }
-        .message { max-width:85%; padding:16px 20px; font-size:14px; line-height:1.6; border-radius:16px; white-space:pre-wrap; box-shadow:0 4px 12px rgba(0,0,0,0.1); } .message.user { align-self:flex-end; color:#fff; background:linear-gradient(135deg, #38bdf8, #0284c7); border-bottom-right-radius:4px; } .message.ai { align-self:flex-start; background:var(--ai-msg-bg); border:1px solid var(--ai-msg-border); color:var(--ai-msg-text); border-bottom-left-radius:4px; } .message .meta { font-size:11px; color:rgba(255,255,255,0.6); margin-bottom:8px; display:flex; justify-content:space-between; gap:16px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; } .message.ai .meta { color:var(--muted); } details { margin-top:16px; font-size:13px; background:var(--details-bg); border-radius:8px; padding:12px; border:1px solid var(--details-border); } summary { cursor:pointer; font-weight:600; color:#38bdf8; display:flex; align-items:center; gap:8px; } summary::-webkit-details-marker { display:none; } summary::before { content:'►'; font-size:10px; transition:transform 0.2s; } details[open] summary::before { transform:rotate(90deg); }
+        .message { max-width:85%; min-height:fit-content; height:auto; overflow:visible; padding:16px 20px 18px; font-size:14px; line-height:1.65; border-radius:16px; box-shadow:0 4px 12px rgba(0,0,0,0.1); overflow-wrap:anywhere; word-break:normal; } .message.user { align-self:flex-end; color:#fff; background:linear-gradient(135deg, #38bdf8, #0284c7); border-bottom-right-radius:4px; } .message.ai { align-self:flex-start; background:var(--ai-msg-bg); border:1px solid var(--ai-msg-border); color:var(--ai-msg-text); border-bottom-left-radius:4px; } .message .meta { font-size:11px; color:rgba(255,255,255,0.6); margin-bottom:10px; display:flex; justify-content:space-between; gap:16px; font-weight:500; text-transform:uppercase; letter-spacing:0.05em; } .message.ai .meta { color:var(--muted); } .message-content { display:block; overflow:visible; white-space:normal; overflow-wrap:anywhere; word-break:normal; } .message-content p { margin:0 0 12px; } .message-content p:last-child { margin-bottom:0; } .message-content ul { margin:8px 0 12px; padding-left:22px; } .message-content li { margin:6px 0; padding-left:2px; } .message-content strong { font-weight:700; } details { margin-top:16px; font-size:13px; background:var(--details-bg); border-radius:8px; padding:12px; border:1px solid var(--details-border); overflow:visible; } summary { cursor:pointer; font-weight:600; color:#38bdf8; display:flex; align-items:center; gap:8px; } summary::-webkit-details-marker { display:none; } summary::before { content:'►'; font-size:10px; transition:transform 0.2s; } details[open] summary::before { transform:rotate(90deg); }
         .badge-card { margin-top:0; max-width:100%; display:flex; flex-direction:column; gap:16px; padding:24px; } .badge-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; } .badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:99px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; } .badge::before { content:''; display:block; width:6px; height:6px; border-radius:50%; } .badge.allow { color:#10b981; background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.2); } .badge.allow::before { background:#10b981; box-shadow:0 0 8px #10b981; } .badge.block { color:#ef4444; background:rgba(239, 68, 68, 0.1); border:1px solid rgba(239, 68, 68, 0.2); } .badge.block::before { background:#ef4444; box-shadow:0 0 8px #ef4444; } .badge.flag { color:#f59e0b; background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.2); } .badge.flag::before { background:#f59e0b; box-shadow:0 0 8px #f59e0b; } .tier-container { display:flex; flex-direction:column; gap:8px; } .tier-item { padding:12px 16px; background:var(--tier-bg); border:1px solid var(--tier-border); border-radius:12px; color:var(--muted); font-size:12px; line-height:1.5; display:flex; flex-direction:column; gap:4px; } .tier-item strong { color:var(--ink); font-weight:600; font-family:'Outfit', sans-serif; font-size:13px; text-transform:capitalize; }
         @media (max-width:900px) { .app { grid-template-columns:1fr; margin:0; min-height:100vh; border-radius:0; border:none; } .side-nav { min-height:auto; padding:20px; border-right:none; border-bottom:1px solid var(--line); flex-direction:row; align-items:center; flex-wrap:wrap; gap:12px; } .brand { padding:0; margin-right:auto; } .nav-btn { width:auto; padding:10px 16px; margin:0; } .nav-footer { display:none; } .workspace { padding:24px; } .eval-layout, .results-card { max-width:100%; } }
       </style>
@@ -266,6 +266,44 @@ async def dashboard() -> HTMLResponse:
           return "flag";
         }
 
+        function escapeHtml(value) {
+          return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        function normalizeMarkdown(value) {
+          return String(value ?? "")
+            .replace(/\\r\\n/g, "\\n")
+            .replace(/^\s*[-*+]\s+[-*+]\s+/gm, "- ")
+            .replace(/^\s*[-*+]\s+(?=[-*+]\s+)/gm, "");
+        }
+
+        function renderInlineMarkdown(value) {
+          return escapeHtml(value)
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/__([^_]+)__/g, "<strong>$1</strong>");
+        }
+
+        function renderChatMarkdown(value) {
+          const blocks = normalizeMarkdown(value).split(/\\n{2,}/);
+          return blocks.map((block) => {
+            const lines = block.split("\\n").filter((line) => line.trim());
+            const isList = lines.length > 0 && lines.every((line) => /^\s*[-*+]\s+/.test(line));
+            if (isList) {
+              const items = lines
+                .map((line) => line.replace(/^\s*[-*+]\s+/, ""))
+                .map((line) => `<li>${renderInlineMarkdown(line)}</li>`)
+                .join("");
+              return `<ul>${items}</ul>`;
+            }
+            return `<p>${renderInlineMarkdown(lines.join("\\n")).replace(/\\n/g, "<br>")}</p>`;
+          }).join("");
+        }
+
         function appendMessage(role, text, evaluationHtml = "") {
           if (chatWindow.querySelector(".chat-empty")) {
             chatWindow.innerHTML = "";
@@ -277,7 +315,7 @@ async def dashboard() -> HTMLResponse:
               <span>${role === "user" ? "You" : "ControlPlane"}</span>
               <span>${new Date().toLocaleTimeString()}</span>
             </div>
-            <div>${text}</div>
+            <div class="message-content">${renderChatMarkdown(text)}</div>
             ${evaluationHtml ? `<details><summary>Evaluation</summary>${evaluationHtml}</details>` : ""}
           `;
           chatWindow.appendChild(message);
