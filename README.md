@@ -4,6 +4,8 @@ A tiered, policy-driven checking layer for enterprise generative AI responses â€
 hallucination risk, and privacy leaks in real time, with confidence scoring and human-in-the-loop
 escalation. Built for the Accenture Innovation Challenge 2026 (Round 2, Problem Track 1).
 
+## Live link :- https://control-plane-ai.onrender.com/ 
+
 ## What this is
 
 Enterprises run generative AI across many use cases at once (customer-facing chatbots, internal
