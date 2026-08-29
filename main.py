@@ -468,8 +468,8 @@ async def dashboard() -> HTMLResponse:
               throw new Error(data.detail || "Upload failed");
             }
             setPdfContextStatus(`Active Context: ${data.filename || file.name}`, "loaded");
-          } catch (error) {
-            setPdfContextStatus(`PDF upload failed: ${error.message || error}`, "error");
+          } catch (err) {
+            setPdfContextStatus(`PDF upload failed: ${err.message || err}`, "error");
           } finally {
             pdfUploadBtn.disabled = false;
             pdfUploadBtn.textContent = "PDF";
@@ -501,48 +501,82 @@ async def dashboard() -> HTMLResponse:
           appendMessage("ai", data.unconstrained_response || "", evaluationHtml);
         }
 
-        form.addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const payload = {
-            user_prompt: document.getElementById("user_prompt").value,
-            ai_response: document.getElementById("ai_response").value,
-            use_case: document.getElementById("use_case").value,
-          };
+        // ── Evaluate panel: Run Check button ──────────────────────────────────
+        const runBtn = document.querySelector(".run-btn");
+        runBtn.addEventListener("click", async () => {
+          console.log("[RunCheck] button clicked");
 
-          if (data.unconstrained_response !== undefined || data.reasoning_breakdown !== undefined) {
-            const status = data.status || "fail";
-            const score = data.score ?? data.accuracy_score ?? "-";
-            const activePdf = data.active_pdf?.filename || "-";
+          // Loading state
+          runBtn.disabled = true;
+          const originalLabel = runBtn.innerHTML;
+          runBtn.textContent = "Running\u2026";
+          tierResults.innerHTML = `<div class="empty-state">Running evaluation…</div>`;
+          summary.innerHTML = "";
+
+          const payload = {
+            user_prompt: document.getElementById("user_prompt").value.trim(),
+            ai_response: document.getElementById("ai_response").value.trim(),
+            use_case: document.getElementById("use_case").value.trim() || "default",
+          };
+          console.log("[RunCheck] payload:", payload);
+
+          try {
+            const response = await fetch("/api/evaluate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            console.log("[RunCheck] response:", data);
+
+            if (!response.ok) {
+              throw new Error(data.detail || `Server error ${response.status}`);
+            }
+
+            // PDF-audit path (active PDF was set)
+            if (data.unconstrained_response !== undefined || data.reasoning_breakdown !== undefined) {
+              const status = data.status || "fail";
+              const score = data.score ?? data.accuracy_score ?? "-";
+              summary.innerHTML = `
+                <span class="pill">Status: ${escapeHtml(status)}</span>
+                <span class="pill">Score: ${escapeHtml(String(score))}</span>
+              `;
+              tierResults.innerHTML = `
+                ${renderMetrics([
+                  { label: "Status", value: status },
+                  { label: "Score", value: String(score) },
+                  { label: "Active PDF", value: data.active_pdf?.filename || "-" },
+                ])}
+                <div class="tier-container">
+                  <div class="tier-item"><strong>Unconstrained response</strong><div>${renderChatMarkdown(data.unconstrained_response || "")}</div></div>
+                  <div class="tier-item"><strong>Reasoning</strong><div>${escapeHtml(data.reasoning_breakdown || "No reasoning returned.")}</div></div>
+                </div>
+              `;
+              return;
+            }
+
+            // Standard evaluation path
+            const action = data.decision?.action ?? "-";
+            const confidence = data.overall_confidence ?? "-";
             summary.innerHTML = `
-              <span class="pill">Status: ${escapeHtml(status)}</span>
-              <span class="pill">Score: ${escapeHtml(score)}</span>
+              <span class="pill">Action: ${escapeHtml(action)}</span>
+              <span class="pill">Confidence: ${escapeHtml(String(confidence))}</span>
             `;
             tierResults.innerHTML = `
               ${renderMetrics([
-                { label: "Status", value: status },
-                { label: "Score", value: score },
-                { label: "Active PDF", value: activePdf },
+                { label: "Action", value: action },
+                { label: "Confidence", value: String(confidence) },
+                { label: "Tiers", value: String(Object.keys(data.tier_results || {}).length) },
               ])}
-              <div class="tier-container">
-                <div class="tier-item"><strong>Unconstrained response</strong><div>${renderChatMarkdown(data.unconstrained_response || "")}</div></div>
-                <div class="tier-item"><strong>Reasoning</strong><div>${escapeHtml(data.reasoning_breakdown || "No reasoning returned.")}</div></div>
-              </div>
+              <div class="tier-container">${renderTierBreakdown(data.tier_results)}</div>
             `;
-            return;
+          } catch (err) {
+            console.error("[RunCheck] error:", err);
+            tierResults.innerHTML = `<div class="tier-item" style="color:var(--badge-block,#f87171);"><strong>Evaluation failed</strong><div>${escapeHtml(err.message || String(err))}</div></div>`;
+          } finally {
+            runBtn.disabled = false;
+            runBtn.innerHTML = originalLabel;
           }
-
-          summary.innerHTML = `
-            <span class="pill">Action: ${escapeHtml(data.decision?.action ?? "-")}</span>
-            <span class="pill">Confidence: ${escapeHtml(data.overall_confidence ?? "-")}</span>
-          `;
-          tierResults.innerHTML = `
-            ${renderMetrics([
-              { label: "Action", value: data.decision?.action ?? "-" },
-              { label: "Confidence", value: data.overall_confidence ?? "-" },
-              { label: "Tiers", value: Object.keys(data.tier_results || {}).length },
-            ])}
-            <div class="tier-container">${renderTierBreakdown(data.tier_results)}</div>
-          `;
         });
 
         async function sendChat() {
