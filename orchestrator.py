@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from src.engine.confidence import calculate_confidence
 from src.engine.policy import decide, load_policy_config
-from src.models.schemas import EvalRequest, FinalDecision, TierResult
+from src.models.schemas import EvalRequest, FinalDecision, ScoringResult, TierResult, TierStatus
 from src.tiers.ai_judge import evaluate as judge_evaluate
 from src.tiers.heuristics import check as heuristics_check
 from src.tiers.rag_verifier import verify as rag_verify
@@ -23,12 +23,6 @@ async def _run_tier(fn, text: str, context: dict[str, Any]) -> TierResult:
     return await asyncio.to_thread(fn, text, context)
 
 
-def _dump_model(model: Any) -> dict[str, Any]:
-    if hasattr(model, "model_dump"):
-        return model.model_dump()
-    return model.dict()
-
-
 async def evaluate_request(request: EvalRequest, config_path: "str | Path" = "config.yaml") -> dict[str, Any]:
     config = load_policy_config(config_path)
     request_data = _dump_model(request)
@@ -42,7 +36,7 @@ async def evaluate_request(request: EvalRequest, config_path: "str | Path" = "co
     tier_map = dict(zip(tier_tasks.keys(), tier_results))
 
     overall_confidence = calculate_confidence(tier_map)
-    has_flags = any(result.status.value == "fail" for result in tier_map.values())
+    has_flags = any(result.status == TierStatus.fail for result in tier_map.values())
     decision: FinalDecision = decide(
         request.use_case,
         overall_confidence,
@@ -53,7 +47,7 @@ async def evaluate_request(request: EvalRequest, config_path: "str | Path" = "co
     output = {
         "request": request_data,
         "tier_results": {name: _dump_model(result) for name, result in tier_map.items()},
-        "overall_confidence": overall_confidence,
+        "overall_confidence": overall_confidence.final_confidence,
         "decision": _dump_model(decision),
     }
 

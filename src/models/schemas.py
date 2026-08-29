@@ -32,3 +32,16 @@ class FinalDecision(BaseModel):
     final_confidence: confloat(ge=0.0, le=1.0) = Field(
         ..., description="Overall confidence in the final decision"
     )
+
+
+class ScoringResult(BaseModel):
+    """Structured output from the confidence scoring engine."""
+    final_confidence: confloat(ge=0.0, le=1.0) = Field(
+        ..., description="Combined confidence score after capping for coverage gaps"
+    )
+    coverage_complete: bool = Field(
+        ..., description="True if all tiers returned a pass/fail verdict (no not_applicable)"
+    )
+    explanation: str = Field(
+        ..., description="Human-readable summary of how the score was derived"
+    )

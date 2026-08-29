@@ -1,32 +1,16 @@
 import os
 from typing import Any, Optional
 
-from dotenv import load_dotenv
-from groq import Groq
-import httpx
-
 from src.models.schemas import TierResult, TierStatus
 
-load_dotenv()
-
-_CLIENT = None
-
-
-def _get_client():
-    global _CLIENT
-    if _CLIENT is None:
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            return None
-        _CLIENT = Groq(
-            api_key=api_key,
-            http_client=httpx.Client(trust_env=False, timeout=30.0),
-        )
-    return _CLIENT
+_DEFAULT_JUDGE_MODEL = "openai/gpt-oss-safeguard-20b"
 
 
 def evaluate(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
-    client = _get_client()
+    # Import here to allow the shared client module to be set up first
+    from src.engine.groq_client import get_groq_client
+
+    client = get_groq_client()
     if client is None:
         return TierResult(
             status=TierStatus.not_applicable,
@@ -34,6 +18,7 @@ def evaluate(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
             reason="No GROQ_API_KEY provided; returning not applicable.",
         )
 
+    model = os.getenv("GROQ_JUDGE_MODEL", _DEFAULT_JUDGE_MODEL)
     prompt = (
         "You are an AI fact-checker and safety judge. Evaluate the provided text "
         "for factual correctness, general accuracy, and safety. If the response "
@@ -44,7 +29,7 @@ def evaluate(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
 
     try:
         response = client.chat.completions.create(
-            model="openai/gpt-oss-safeguard-20b",
+            model=model,
             messages=[
                 {
                     "role": "system",

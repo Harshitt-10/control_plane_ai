@@ -46,16 +46,56 @@ def _build_aliases(key: str, value: str) -> list[str]:
                 "calendar year",
             ]
         )
+    elif key == "remote_work_stipend_expenses":
+        aliases.extend(
+            [
+                "eligible stipend expenses",
+                "external monitors webcams headsets",
+                "docking stations",
+                "internet upgrade fee",
+            ]
+        )
+    elif key == "remote_work_stipend_deadline":
+        aliases.extend(
+            [
+                "reimbursement deadline",
+                "submit within 45 days",
+                "purchase date",
+            ]
+        )
     elif key == "it_security_password_rules":
         aliases.extend(
             [
                 "password rules",
                 "password must be at least 14 characters",
-                "multi factor authentication",
                 "uppercase lowercase numbers special characters",
             ]
         )
+    elif key == "it_security_mfa":
+        aliases.extend(
+            [
+                "multi factor authentication",
+                "mfa",
+                "authenticator apps hardware security keys",
+                "vpn access email payroll source control",
+            ]
+        )
+    elif key == "it_security_password_rotation":
+        aliases.extend(
+            [
+                "password rotation",
+                "password change",
+                "compromise suspected",
+            ]
+        )
     elif key == "mess_management_system":
+        aliases.extend(
+            [
+                "mess management system",
+                "meal planning vendor coordination cafeteria",
+            ]
+        )
+    elif key == "mess_management_system_deployment_stack":
         aliases.extend(
             [
                 "mess management system deployment stack",
@@ -64,8 +104,33 @@ def _build_aliases(key: str, value: str) -> list[str]:
                 "production deployments",
             ]
         )
+    elif key == "mess_management_system_environments":
+        aliases.extend(
+            [
+                "development staging production environments",
+                "staging mirrors production",
+                "release validation",
+            ]
+        )
+    elif key == "mess_management_system_release_process":
+        aliases.extend(
+            [
+                "ci cd pipeline",
+                "automated tests security scans manual approval",
+                "rollback container image",
+            ]
+        )
+    elif key == "mess_management_system_monitoring":
+        aliases.extend(
+            [
+                "application logs api latency dashboards",
+                "database health alerts pod restart",
+                "on call engineering channel",
+            ]
+        )
 
     return [alias for alias in aliases if alias]
+
 
 
 def _find_matching_topics(prompt_text: str, knowledge_base: dict[str, str]) -> list[tuple[str, str]]:

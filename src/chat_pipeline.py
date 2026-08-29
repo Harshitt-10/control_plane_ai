@@ -7,20 +7,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
-from dotenv import load_dotenv
-from groq import Groq
-import httpx
-
 from src.engine.confidence import calculate_confidence
+from src.engine.groq_client import get_groq_client
 from src.engine.policy import decide, load_policy_config
 from src.feedback import log_case
 from src.models.schemas import TierStatus
-from src.tiers import heuristics_check, rag_verify
-from src.tiers.ai_judge import evaluate as judge_evaluate
+from src.tiers import heuristics_check, rag_verify, ai_judge as judge_evaluate_fn
 
-load_dotenv()
-
-_CLIENT = None
 _STOPWORDS = {
     "the",
     "and",
@@ -112,18 +105,6 @@ def search_local_facts(query: str, limit: int = 5) -> list[dict[str, str]]:
     return topic_matches[:limit]
 
 
-def _get_client():
-    global _CLIENT
-    if _CLIENT is None:
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            return None
-        _CLIENT = Groq(
-            api_key=api_key,
-            http_client=httpx.Client(trust_env=False, timeout=30.0),
-        )
-    return _CLIENT
-
 
 def _build_context_snippet(facts: Iterable[dict[str, str]]) -> str:
     lines = []
@@ -133,7 +114,7 @@ def _build_context_snippet(facts: Iterable[dict[str, str]]) -> str:
 
 
 def generate_grounded_response(user_prompt: str, facts: list[dict[str, str]]) -> str:
-    client = _get_client()
+    client = get_groq_client()
     context_snippet = _build_context_snippet(facts)
 
     if client is None:
@@ -145,22 +126,22 @@ def generate_grounded_response(user_prompt: str, facts: list[dict[str, str]]) ->
         return "I could not find relevant internal facts to ground a response."
 
     prompt = (
-        "Write a concise enterprise response using only the facts provided below. "
-        "Do not invent policy details, dates, systems, or procedures that are not in the facts. "
-        "If the facts are insufficient, say that the available internal knowledge base does not contain enough information.\n\n"
+        "Determine if the USER PROMPT is a general-knowledge / external question or an internal company-specific question.\n"
+        "1. If the prompt is a general knowledge or general external question unrelated to internal company policy or details (e.g. capitals, science, math, general help), answer it directly using your general knowledge.\n"
+        "2. If the prompt is about company policies, procedures, systems, or internal operations (e.g., remote work stipend, password rules, internal systems), you MUST ground your response strictly in the FACTS provided below. Do not invent any internal company details. If the facts are insufficient to answer the internal company question, say that the available internal knowledge base does not contain enough information.\n\n"
         f"USER PROMPT:\n{user_prompt}\n\n"
         f"FACTS:\n{context_snippet}\n"
     )
 
     try:
         response = client.chat.completions.create(
-            model=os.getenv("GROQ_CHAT_MODEL", "llama-3.3-70b-versatile"),
+            model=os.getenv("GROQ_CHAT_MODEL", "openai/gpt-oss-20b"),
             messages=[
                 {
                     "role": "system",
                     "content": (
-                        "You are an internal enterprise assistant. Ground every answer strictly in the supplied facts. "
-                        "If the facts do not support an answer, say so plainly."
+                        "You are an internal enterprise assistant. Answer general knowledge queries directly. "
+                        "For company-specific questions, strictly ground your answers in the supplied facts and refuse to answer if the facts are missing or insufficient."
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -183,7 +164,7 @@ def run_governance(response_text: str, context: Optional[dict[str, Any]] = None)
     tier_results = {
         "heuristics": heuristics_check(response_text, context),
         "rag": rag_verify(response_text, context),
-        "judge": judge_evaluate(response_text, context),
+        "judge": judge_evaluate_fn(response_text, context),
     }
     scoring_result = calculate_confidence(tier_results)
     policy_config = load_policy_config(context.get("policy_path", "config.yaml"))
