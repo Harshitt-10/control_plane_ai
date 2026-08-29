@@ -83,7 +83,48 @@ def generate_unconstrained_response(user_prompt: str) -> str:
         return f"Unable to generate an unconstrained response: {exc}"
 
 
+def generate_rag_response(user_prompt: str, pdf_text: str) -> str:
+    """Generate a response strictly grounded in the supplied PDF text (RAG path)."""
+    client = get_groq_client()
+    if client is None:
+        return "No LLM provider is configured; cannot generate a document-backed answer."
+
+    # Truncate PDF text to stay comfortably within token budget
+    truncated_pdf = pdf_text[:12000] if len(pdf_text) > 12000 else pdf_text
+
+    try:
+        completion = client.chat.completions.create(
+            model=os.getenv("GROQ_CHAT_MODEL", "llama3-8b-8192"),
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a precise document-grounded assistant. "
+                        "Answer the user's question using ONLY the information in the provided document. "
+                        "If the document does not contain enough information to answer, say so explicitly. "
+                        "Structure your answer clearly using Markdown. Do not invent or assume any facts "
+                        "not present in the document."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"DOCUMENT:\n{truncated_pdf}\n\n"
+                        f"QUESTION:\n{user_prompt}"
+                    ),
+                },
+            ],
+            temperature=0.1,
+        )
+        answer = (completion.choices[0].message.content or "").strip()
+        return answer if answer else "The document-grounded generation returned an empty response."
+    except Exception as exc:
+        logger.exception("Groq RAG generation failed for prompt: %r", user_prompt)
+        return f"Unable to generate a document-backed answer: {exc}"
+
+
 def _parse_judge_output(raw: str) -> PdfAuditResult | None:
+
     """Parse a judge JSON response, allowing Markdown code fences from tolerant models."""
     candidate = raw.strip()
     if candidate.startswith("```"):
@@ -169,10 +210,15 @@ def audit_active_pdf_prompt(user_prompt: str) -> dict[str, object]:
     if context is None:
         raise RuntimeError("No active PDF context")
 
+    # Generate unconstrained answer (no document context injected)
     ai_answer = generate_unconstrained_response(user_prompt)
+    # Generate RAG answer (strictly grounded in the PDF)
+    rag_answer = generate_rag_response(user_prompt, context.text)
+    # Grade the unconstrained answer against the PDF
     audit = audit_against_pdf(ai_answer, context.text)
     return {
         "unconstrained_response": ai_answer,
+        "rag_answer": rag_answer,
         "score": audit.accuracy_score,
         "accuracy_score": audit.accuracy_score,
         "status": audit.status,

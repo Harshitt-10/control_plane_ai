@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from orchestrator import evaluate_request
 from src.models.schemas import EvalRequest
-from src.chat_pipeline import chat_pipeline
+from src.chat_pipeline import chat_pipeline, generate_grounded_response
 from src.pdf_audit import audit_active_pdf_prompt, get_active_pdf, replace_active_pdf
 
 app = FastAPI(title="ControlPlane")
@@ -39,12 +39,9 @@ async def api_evaluate(request: EvalRequest) -> dict[str, Any]:
     # PDF audit flow always produces its own unconstrained response first.
     if get_active_pdf() is not None:
         return await asyncio.to_thread(audit_active_pdf_prompt, request.user_prompt)
+
     result = await evaluate_request(request)
-    return {
-        "decision": result["decision"],
-        "overall_confidence": result["overall_confidence"],
-        "tier_results": result["tier_results"],
-    }
+    return result
 
 
 @app.post("/api/upload-pdf")
@@ -96,12 +93,18 @@ async def api_chat(request: ChatRequest) -> dict[str, Any]:
     )
 
     result = chat_pipeline(request.message, runtime_context)
+    rag_answer = await asyncio.to_thread(
+        generate_grounded_response,
+        request.message,
+        result["retrieved_facts"],
+    )
     decision = result["decision"]
     scoring_result = result["scoring"]
     tier_results = result["tier_results"]
 
     return {
         "reply": result["draft_response"],
+        "rag_answer": rag_answer,
         "evaluation": {
             "retrieved_facts": result["retrieved_facts"],
             "tier_results": _dump_model(tier_results) if hasattr(tier_results, "model_dump") else {
@@ -198,6 +201,10 @@ async def dashboard() -> HTMLResponse:
         .eval-accordion summary { min-height:52px; padding:14px 16px; color:var(--ink); justify-content:space-between; border-bottom:1px solid transparent; }
         .eval-accordion[open] summary { border-bottom-color:var(--panel-border); }
         .eval-accordion summary::before { color:var(--blue); }
+        .rag-answer-content { line-height:1.65; }
+        .rag-answer-content p { margin:0 0 8px; }
+        .rag-answer-content ul, .rag-answer-content ol { margin:0 0 8px; padding-left:20px; }
+        .rag-answer-content code { background:var(--tier-bg); border-radius:4px; padding:1px 5px; font-size:.85em; }
         .eval-body { padding:16px; }
         .metric-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
         .metric { min-width:0; padding:12px; border:1px solid var(--panel-border); border-radius:14px; background:var(--tier-bg); }
@@ -427,7 +434,7 @@ async def dashboard() -> HTMLResponse:
           chatWindow.scrollTop = chatWindow.scrollHeight;
         }
 
-        function appendMessage(role, text, evaluationHtml = "") {
+        function appendMessage(role, text, evaluationHtml = "", ragText = "") {
           if (chatWindow.querySelector(".chat-empty")) {
             chatWindow.innerHTML = "";
           }
@@ -440,6 +447,7 @@ async def dashboard() -> HTMLResponse:
             </div>
             <div class="message-content">${renderChatMarkdown(text)}</div>
             ${evaluationHtml ? `<details class="eval-accordion"><summary>Evaluation</summary><div class="eval-body">${evaluationHtml}</div></details>` : ""}
+            ${role === "ai" && ragText ? `<details class="eval-accordion rag-accordion"><summary>📚 View Document-Backed Answer (RAG)</summary><div class="eval-body rag-answer-content">${renderChatMarkdown(ragText)}</div></details>` : ""}
           `;
           chatWindow.appendChild(message);
           scrollChatToBottom();
@@ -498,7 +506,12 @@ async def dashboard() -> HTMLResponse:
             </div>
           `;
           chatEvaluation.innerHTML = evaluationHtml;
-          appendMessage("ai", data.unconstrained_response || "", evaluationHtml);
+          appendMessage(
+            "ai",
+            data.unconstrained_response || "",
+            evaluationHtml,
+            data.rag_answer || "No document-backed answer was returned."
+          );
         }
 
         // ── Evaluate panel: Run Check button ──────────────────────────────────
@@ -510,7 +523,7 @@ async def dashboard() -> HTMLResponse:
           runBtn.disabled = true;
           const originalLabel = runBtn.innerHTML;
           runBtn.textContent = "Running\u2026";
-          tierResults.innerHTML = `<div class="empty-state">Running evaluation…</div>`;
+          tierResults.innerHTML = `<div class="empty-state">Running evaluation\u2026</div>`;
           summary.innerHTML = "";
 
           const payload = {
@@ -641,7 +654,7 @@ async def dashboard() -> HTMLResponse:
                 { label: "Retrieved facts", value: (evaluation.retrieved_facts || []).length },
               ])}
               <div class="tier-container">${renderTierBreakdown(tierResultsData)}</div>
-            `);
+            `, data.rag_answer || "No document-backed answer was returned.");
           } catch (error) {
             placeholder.remove();
             appendMessage("ai", `There was an error calling /api/chat: ${error}`);

@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 from src.models.schemas import TierResult, TierStatus
 
-_DEFAULT_JUDGE_MODEL = "openai/gpt-oss-safeguard-20b"
+_DEFAULT_JUDGE_MODEL = "llama3-8b-8192"
 
 
 def evaluate(text: str, context: Optional[dict[str, Any]] = None) -> TierResult:
