@@ -13,7 +13,7 @@ The project includes:
 - Configurable per-use-case policy thresholds.
 - JSON feedback logging for flagged results.
 
-Live demo: [control-plane-ai.onrender.com](https://control-plane-ai.onrender.com/)
+Live Link: [control-plane-ai.onrender.com](https://control-plane-ai.onrender.com/)
 
 ## How the system works
 
